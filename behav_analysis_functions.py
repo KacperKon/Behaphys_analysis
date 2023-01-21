@@ -17,27 +17,26 @@ import ephys
 #%%
 
 def load_files(path, extension):
-    ###
-    # Auxiliary function for loading all file names with certain extention from a folder
-    # into a list.
-    #
-    ###
+    """
+    This auxiliary function takes a path and an extension as arguments
+    and returns a list of paths to the files that match the given extension in the specified path.
+    """
     paths = glob.glob(path + "\*." + extension)
     
     return paths
 
 def read_bvs(filepath, framerate):
-    
-    ### 
-    # Function to read bsv output sequence of BehaView
-    #
-    # filepath - string, path to the file
-    # framerate - framerate of the video for proper transformation of time
-    #             to video frame number
-    #
-    # Returns data frame with two columns: frame and behavior
-    ###
-    
+    """
+    This function reads a CSV file and returns a dataframe containing the frame numbers and behaviors for the data.
+
+    Parameters:
+        filepath (str): the path to the CSV file
+        framerate (int): the framerate of the video
+
+    Returns:
+        df (DataFrame): a pandas dataframe containing the frame numbers and behaviors for the data
+    """
+
     df = pd.read_csv(filepath)
     behav = df["[BehaViewSeq]"].str.split(" - ", expand=True)
     df = behav[0].str.split(":", expand=True)
@@ -61,11 +60,14 @@ def read_bvs(filepath, framerate):
     return df
 
 def starts_stops(behavior):
-    ###
-    # Finds when instances of behaviors start and stop 
-    #
-    # !!!Auxiliary function, don't change!!!
-    ###
+    """
+    This auxiliary function takes a dataframe (behavior) as an argument
+    and returns:
+     a dataframe (behav) with the start and stop values of a behavior,
+     the name of the behavior,
+     and an index column.
+    """
+
     behav = pd.DataFrame({"start":behavior["frame"].iloc[::2].values, 
                           'stop':behavior["frame"].iloc[1::2].values})
     behav = behav.astype({"start": int, "stop": int})
@@ -76,16 +78,18 @@ def starts_stops(behavior):
     return behav
 
 def conditions_ready(file, df, TS, framerate, video_len, test_dir):
-    ###
-    # Applies conditions and extracts instances when conditions are met 
-    # file - path of analyzed file used for filename extraction
-    # df - output of read_bvs function
-    # TS - filepath with timestamps of frames relative to ephys recordings
-    # framerate - framerate of the video
-    # video_len - length of the video in frames
-    #
-    # Saves files into a specified location - temporarily hardcoded in the function
-    ###    
+    """
+    This function takes 6 parameters and generates text files containing start and stop times of behaviors based on the parameters.
+    The parameters are:
+        file (string): the name of the file
+        df (DataFrame): the dataframe containing the behaviors
+        TS (string): the name of the text file containing the timestamps
+        framerate (int): the framerate of the video
+        video_len (int): the length of the video
+        test_dir (string): the directory of the output text files
+
+    The function creates text files containing the start and stop times of each behavior for the conditions when both ephys and non-ephys detect the behavior, when only ephys detects the behavior, and when only non-ephys detects the behavior.
+    """
 
     TS = pd.read_csv(TS, header=0, index_col=None)
     behaviors = list(pd.unique(df.iloc[:,1]))
@@ -167,6 +171,18 @@ def conditions_ready(file, df, TS, framerate, video_len, test_dir):
         np.savetxt(test_dir + "Conditions\\" + filename + "_" + behavior + "_ephys_only.txt", ephys_only)
 
 def behavior_sequences(file, df, TS, framerate, video_len):
+    """
+    This function takes in a file and associated dataframe, timestamp csv, framerate, and video length.
+
+    file (str): The file being analyzed
+    df (dataframe): The dataframe containing the behavior data
+    TS (str): The timestamp csv file
+    framerate (int): The framerate of the video
+    video_len (int): The length of the video
+
+    This function creates two .csv files containing the lengths of every ephys and non-ephys behavior sequence for each behavior in the dataframe.
+    """
+
     TS = pd.read_csv(TS, header=0, index_col=None)
     behaviors = list(pd.unique(df.iloc[:,1]))
 
@@ -245,14 +261,17 @@ def behavior_sequences(file, df, TS, framerate, video_len):
     non_ephys_seq_lengths.to_csv(r"C:\Ephys_analysis\Sequences_behavior\\" + filename + "non_ephys_behav_sequence.csv")
 
 def simba_ready(df, video_len):
-    ###
-    # Prepares data to format accepted in simba "targets_inserted" file
-    #
-    # df - DataFrame, output of read_bvs function
-    # video_len - int, length of video in number of frames
-    #
-    # Returns data ready to be saved into a csv 
-    ###
+    """
+    This function takes in a dataframe and a video length, and returns a dataframe with binary values indicating the presence or absence of certain behaviors.
+
+    Inputs:
+    df (DataFrame): a pandas dataframe with columns "start", "stop", and "behavior".
+    video_len (int): the total length of the video.
+
+    Outputs:
+    data (DataFrame): a pandas dataframe with binary values indicating the presence (1) or absence (0) of certain behaviors.
+    """
+
     behaviors = list(pd.unique(df.iloc[:,1]))
     
     dataframes = []
@@ -265,22 +284,27 @@ def simba_ready(df, video_len):
         
     points = list(map(starts_stops, dataframes))
         
-    data = pd.DataFrame(index=range(video_len),columns=behaviors)
+    data = pd.DataFrame(0, index=range(video_len),columns=behaviors)
     for point in points:
         for i in range(len(point)):
             name = pd.unique(point.iloc[:,2])
-            data[name[0]][point["start"][i]:point["stop"][i]] = 1
+            data[name[0]][point["start"][i]:point["stop"][i]] = 1.0
+
         
     return data
 
 def save_data(filename, data):
-    ###
-    # Auxiliary function for data saving
-    # filename - str, uses name of the input file
-    # data - DataFrame, output of the simba_ready function
-    #
-    # Saves data into the same folder as original data as .csv file
-    ###
+    """
+    This auxiliary function saves data to a csv file.
+
+    Parameters:
+    filename (string): The name of the file to save.
+    data (dataframe): The data to save in the file.
+
+    Returns:
+    data.to_csv(name) (string): The saved data in csv format.
+    """
+
     path = os.path.split(filename)
     filename = os.path.splitext(path[1])
     name = path[0] + "\\" + filename[0] + "_filled.csv"
@@ -288,12 +312,17 @@ def save_data(filename, data):
     return data.to_csv(name)    
 
 def save_labels(filename, data, col_name): #!!!needs work, add creating Conditions folder in Ephys NP X folders and save into those!!!
-    ###
-    # Auxiliary function for label saving
-    # filename - str, uses name of the input file
-    # data - DataFrame, output of the simba_ready function
-    # Saves data into the same folder as original data as .csv file
-    ###
+    """
+    This auxiliary function saves the data labels in a text file.
+
+    Parameters:
+        filename (str): The file path of the data
+        data (DataFrame): The data to be saved
+        col_name (str): The name of the data column to be saved
+
+    Returns:
+        A file containing the labels for the given data column.
+    """
 
     path = os.path.split(filename)
     filename = os.path.splitext(path[1])
@@ -302,15 +331,33 @@ def save_labels(filename, data, col_name): #!!!needs work, add creating Conditio
     return data.to_csv(name, index=False, header=False)
 
 def make_behav_dirs(behaviors, save_dir):
+    """
+    This function creates subdirectories in the specified save directory for each behavior passed in.
+
+    Parameters:
+    behaviors (list): List of behaviors for which to create directories.
+    save_dir (str): Path of the save directory to create subdirectories in.
+
+    Returns:
+    None
+    """
+
     for behavior in behaviors:
         behav_path = save_dir + "\\" + behavior
         if not os.path.exists(behav_path):
             os.makedirs(behav_path)
 
 def list_exp_dirs(tests_dir):
-    # Function used to list where ephys experiment trials are stored
-    # tes - directory with ephys data subdirectories corresponding to experimental pairs
-    # 
+    """
+    Function to list all the experiment directories present in a given tests directory.
+
+    Parameters:
+        tests_dir (str): path to the tests directory
+
+    Returns:
+        tests (list): list of paths to the experiment directories
+    """
+
     tes = os.listdir(tests_dir)
     tests = []
     for i in tes:
@@ -320,8 +367,16 @@ def list_exp_dirs(tests_dir):
     return tests
 
 def exp_dates(tests):
-    # Get dates and timestamps of experimental trials for future sorting and filtering
-    # tests - list, output of list_exp_dirs function
+    """
+    This function takes in a list of tests and returns a list of their expiration dates. It uses the os library to access the "Conditions" folder of each test and splits the file name to extract the expiration date.
+
+    Parameters:
+    tests (list): a list of tests
+
+    Returns:
+    date_list (list): a list of the expiration dates of the tests
+    """
+
     date_list = []
     for test in tests:
         var = os.listdir(test + "Conditions\\")
@@ -334,13 +389,19 @@ def exp_dates(tests):
     return date_list
 
 def plot_conditons(conditions, behaviors, tests, date_list): #!!!add creation of commined_plots_ephys dir!!! and rewrite to accomodate looping through conditons and plots without explicitly wrriting them
-    # Function plotting rasters and psths in 2x4 figures based on required conditions (works per behavior)
-    # 
-    # conditions - list of str naming conditions from conditions_ready output (saved files)
-    # behaviors - list of str naming behaviors used in the experiment
-    # tests - list of str, output of list_exp_dirs
-    # date_list - list of str, exp_dates    
-    
+    """
+    Plot event-aligned firing rate (EFR) rasters and peri-event histograms for different types of behavioral conditions.
+
+    Parameters:
+        conditions (list): list of strings specifying the behavioral conditions to plot
+        behaviors (list): list of strings specifying the behaviors to plot
+        tests (list): list of strings specifying the test folders to plot from
+        date_list (list): list of strings specifying the dates of the tests
+
+    Returns:
+        Saves an image of the EFR plot for each unit in each test in the combined_plots_ephys directory.
+    """
+
     plt.ioff()
     for test, date in zip(tests, date_list):
         spks_ts, units_id = ephys.read_spikes(test, sampling_rate = 30000.0, read_only = "good")
@@ -434,13 +495,102 @@ def plot_conditons(conditions, behaviors, tests, date_list): #!!!add creation of
                 del spks, fr, spks1, fr1, spks2, fr2, uid
                 gc.collect()
 
+def old_plot_conditons_z_score(conditions, behaviors, tests, date_list): #!!!add creation of commined_plots_ephys dir!!! and rewrite to accomodate looping through conditons and plots without explicitly wrriting them
+
+    plt.ioff()
+    for test, date in zip(tests, date_list):
+        spks_ts, units_id = ephys.read_spikes(test, sampling_rate = 30000.0, read_only = "good")
+        for behavior in behaviors:
+            behav_path = test + "\\combined_plots_z-score\\" + behavior
+            if not os.path.exists(behav_path):
+                os.makedirs(behav_path)
+
+            centered = []
+            names = []
+            sems = []
+            al = []
+            
+            for condition in conditions:
+                events_ts = np.loadtxt(test + "Conditions\\" + "camA_" + date + "_compr_" + behavior + "_" + condition + ".txt")                        
+                centered_ts = ephys.calc_rasters(spks_ts, events_ts, pre_event = 5.0, post_event = 5.0)
+                all_fr, mean_fr, sem_fr, t_vec = ephys.fr_events_binless(centered_ts, 0.2, trunc_gauss = 4,
+                                                                    sampling_rate = 30000.0, sampling_out = 100,
+                                                                    pre_event = 5.0, post_event = 5.0)
+                all_zsc, mean_zsc, sem_zsc, bin_edges = ephys.zscore_events(all_fr, 0.01, pre_event = 5.0, post_event = 5.0)
+                centered.append(centered_ts)
+                names.append(condition)
+                sems.append(sem_zsc)
+                al.append(all_zsc)
+
+            for spks, fr, sem, spks1, fr1, sem1, spks2, fr2, sem2, spks3, fr3, sem3,  uid  in zip(centered[0], al[0], sems[0],centered[1], al[1], sems[1], centered[2], al[2], sems[2], centered[3], al[3], sems[3], units_id):
+                fig, axes = plt.subplots(2, 4, sharex = 'all', sharey='row') #figsize= rozmiar figury
+                cmap = plt.get_cmap("tab10") # that's a color map
+                axes[0, 0].tick_params(axis="both", labelsize=4)    
+                axes[1, 0].tick_params(axis="both", labelsize=4)
+                axes[0, 1].tick_params(axis="both", labelsize=4)
+                axes[1, 1].tick_params(axis="both", labelsize=4)
+                axes[0, 2].tick_params(axis="both", labelsize=4)
+                axes[1, 2].tick_params(axis="both", labelsize=4)
+                axes[0, 3].tick_params(axis="both", labelsize=4)
+                axes[1, 3].tick_params(axis="both", labelsize=4)
+
+                axes[0, 0].eventplot(spks, linelengths=1.5, color="blue") #docelowo w pętli po warunkach zamiast drugiego 0
+                axes[1, 0].plot(t_vec, np.mean(fr, 0), color="blue")
+                y1 = np.mean(fr, 0) + sem
+                y2 = np.mean(fr, 0) - sem
+                axes[1, 0].fill_between(t_vec, y1, y2, alpha=0.5, zorder=2, color="blue")
+                axes[1, 0].axvline(x = 0, linestyle = '--', color = 'gray', linewidth = 1)
+                axes[0, 0].set_title('both_ephys_alligned', fontsize=6)
+                axes[0, 0].set_ylabel('trial', fontsize=4)
+                axes[1, 0].set_xlabel('time', fontsize=4)
+                axes[1, 0].set_ylabel('mean_fr', fontsize=4)
+
+                axes[0, 1].eventplot(spks1, linelengths=1.5, color="green") #docelowo w pętli po warunkach zamiast drugiego 0
+                axes[1, 1].plot(t_vec, np.mean(fr1, 0), color="green")
+                y3 = np.mean(fr1, 0) + sem1
+                y4 = np.mean(fr1, 0) - sem1
+                axes[1, 1].fill_between(t_vec, y3, y4, alpha=0.5, zorder=2, color="green")
+                axes[1, 1].axvline(x = 0, linestyle = '--', color = 'gray', linewidth = 1)
+                axes[0, 1].set_title('both_n_ephys_alligned', fontsize=6)
+                axes[1, 1].set_xlabel('time', fontsize=4)
+
+                axes[0, 2].eventplot(spks2, linelengths=1.5, color="orange") #docelowo w pętli po warunkach zamiast drugiego 0
+                axes[1, 2].plot(t_vec, np.mean(fr2, 0), color="orange")
+                y5 = np.mean(fr2, 0) + sem2
+                y6 = np.mean(fr2, 0) - sem2
+                axes[1, 2].fill_between(t_vec, y5, y6, alpha=0.5, zorder=2, color="orange")
+                axes[1, 2].axvline(x = 0, linestyle = '--', color = 'gray', linewidth = 1)
+                axes[0, 2].set_title('ephys_only', fontsize=6)
+                axes[1, 2].set_xlabel('time', fontsize=4)
+
+                axes[0, 3].eventplot(spks3, linelengths=1.5, color="red") #docelowo w pętli po warunkach zamiast drugiego 0
+                axes[1, 3].plot(t_vec, np.mean(fr3, 0), color="red")
+                y7 = np.mean(fr3, 0) + sem3
+                y8 = np.mean(fr3, 0) - sem3
+                axes[1, 3].fill_between(t_vec, y7, y8, alpha=0.5, zorder=2, color="red")
+                axes[1, 3].axvline(x = 0, linestyle = '--', color = 'gray', linewidth = 1)
+                axes[0, 3].set_title('non_ephys_only', fontsize=6)
+                axes[1, 3].set_xlabel('time', fontsize=4)
+
+                fig.savefig(behav_path + "\\" + str(uid) + '.png', facecolor="white", dpi = 250)
+                fig.clf()
+                plt.close("all")
+                del spks, fr, spks1, fr1, spks2, fr2, uid
+                gc.collect()
+
 def plot_conditons_z_score(conditions, behaviors, tests, date_list): #!!!add creation of commined_plots_ephys dir!!! and rewrite to accomodate looping through conditons and plots without explicitly wrriting them
-    # Function plotting rasters and psths in 2x4 figures based on required conditions (works per behavior)
-    # 
-    # conditions - list of str naming conditions from conditions_ready output (saved files)
-    # behaviors - list of str naming behaviors used in the experiment
-    # tests - list of str, output of list_exp_dirs
-    # date_list - list of str, exp_dates    
+    """
+    This function plots z-scored mean firing rate for a given test and behavior, for each condition, for each unit.
+
+    Parameters:
+    conditions (list): list of conditions to include in the plot.
+    behaviors (list): list of behaviors for which to plot the z-scored mean firing rate.
+    tests (list): list of tests for which to plot the z-scored mean firing rate.
+    date_list (list): list of dates corresponding to the tests.
+
+    Returns:
+    plots (png): individual pngs for each unit containing the z-scored mean firing rate for each condition.
+    """
     
     plt.ioff()
     for test, date in zip(tests, date_list):
@@ -535,3 +685,59 @@ def plot_conditons_z_score(conditions, behaviors, tests, date_list): #!!!add cre
                 plt.close("all")
                 del spks, fr, spks1, fr1, spks2, fr2, uid
                 gc.collect()
+
+def behavior_(file, df, framerate, video_len):
+    """
+    This function takes in a dataframe containing labels for a video and returns two dataframes with one containing the ephys behaviors of the mouse and the other containing the non-ephys behaviors.
+
+    Parameters:
+        file (str): Name of the file being used
+        df (pd.DataFrame): DataFrame containing labels for behavior in a video
+        framerate (int): Number of frames in one second of the video
+        video_len (int): Length of the video in frames
+
+    Returns:
+        non_ephys_filled (pd.DataFrame): DataFrame with non_ephys behaviors filled
+        ephys_filled (pd.DataFrame): DataFrame with ephys behaviors filled
+    """
+
+    behaviors = list(pd.unique(df.iloc[:,1]))
+
+    dataframes = []
+
+    for behavior in behaviors:
+        behav = df.where(df["behavior"] == behavior)
+        behav.dropna(inplace=True)
+        behav.reset_index(drop=True, inplace=True)
+        dataframes.append(behav)
+
+    points = list(map(starts_stops, dataframes))
+
+    behs = []
+    for point in points:
+        point = point.drop(["index", "stop"], axis=1)
+        behs.append(point)
+
+    behaviors = ["rearing", "grooming", "freezing", "social"]
+
+    non_ephys_filled = pd.DataFrame(index = range(video_len), 
+                        columns= [behavior + '_non_ephys'.format(behavior) for behavior in behaviors])
+    
+    ephys_filled = pd.DataFrame(index = range(video_len), 
+                    columns= [behavior + '_ephys'.format(behavior) for behavior in behaviors])
+
+    for behavior in behaviors:
+        for point in points:
+            if point["behavior"][0] == behavior + "_ephys":
+                for i in range(len(point)):
+                    name = pd.unique(point.iloc[:,2])
+                    ephys_filled[name[0]][point["start"][i] - framerate:point["stop"][i]] = 1
+            if point["behavior"][0] == behavior + "_non_ephys":
+                for i in range(len(point)):
+                    name = pd.unique(point.iloc[:,2])
+                    non_ephys_filled[name[0]][point["start"][i] - framerate:point["stop"][i]] = 1
+
+    non_ephys_filled = non_ephys_filled.fillna(0)
+    ephys_filled = ephys_filled.fillna(0)
+    
+    return non_ephys_filled, ephys_filled
