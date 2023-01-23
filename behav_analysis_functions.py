@@ -89,6 +89,7 @@ def conditions_ready(file, df, TS, framerate, video_len, test_dir):
         test_dir (string): the directory of the output text files
 
     The function creates text files containing the start and stop times of each behavior for the conditions when both ephys and non-ephys detect the behavior, when only ephys detects the behavior, and when only non-ephys detects the behavior.
+    The function also creates text files containing the start and stop times of each behavior for the conditions when both ephys and non-ephys stop detecting the behavior, when only ephys stops detecting the behavior, and when only non-ephys stops detecting the behavior.
     """
 
     TS = pd.read_csv(TS, header=0, index_col=None)
@@ -115,11 +116,19 @@ def conditions_ready(file, df, TS, framerate, video_len, test_dir):
                         columns= [behavior + '_non_ephys'.format(behavior) for behavior in behaviors])
     non_ephys_filled = pd.DataFrame(index = range(video_len), 
                         columns= [behavior + '_non_ephys'.format(behavior) for behavior in behaviors])
+    non_ephys_stops = pd.DataFrame(index = range(video_len),
+                        columns= [behavior + '_non_ephys'.format(behavior) for behavior in behaviors])
+    non_ephys_filled2 = pd.DataFrame(index = range(video_len),
+                        columns= [behavior + '_non_ephys'.format(behavior) for behavior in behaviors])
 
     ephys_starts = pd.DataFrame(index = range(video_len), 
                     columns= [behavior + '_ephys'.format(behavior) for behavior in behaviors])
     ephys_filled = pd.DataFrame(index = range(video_len), 
                     columns= [behavior + '_ephys'.format(behavior) for behavior in behaviors])
+    ephys_stops = pd.DataFrame(index=range(video_len),
+                                columns=[behavior + '_ephys'.format(behavior) for behavior in behaviors])
+    ephys_filled2 = pd.DataFrame(index=range(video_len),
+                                columns=[behavior + '_ephys'.format(behavior) for behavior in behaviors])
 
 
     for behavior in behaviors:
@@ -127,8 +136,14 @@ def conditions_ready(file, df, TS, framerate, video_len, test_dir):
             if beh["behavior"][0] == behavior + "_non_ephys":
                 non_ephys_starts[behavior + "_non_ephys"].iloc[beh["start"]] = 1
 
+            elif beh["behavior"][1] == behavior + "_non_ephys":
+                non_ephys_stops[behavior + "_non_ephys"].iloc[beh["stop"]] = 1
+
             elif beh["behavior"][0] == behavior + "_ephys":
                 ephys_starts[behavior + "_ephys"].iloc[beh["start"]] = 1
+
+            elif beh["behavior"][1] == behavior + "_ephys":
+                ephys_stops[behavior + "_ephys"].iloc[beh["stop"]] = 1
 
     for behavior in behaviors:
         for point in points:
@@ -142,13 +157,24 @@ def conditions_ready(file, df, TS, framerate, video_len, test_dir):
                     non_ephys_filled[name[0]][point["start"][i] - framerate:point["stop"][i]] = 1
 
     non_ephys_starts.index = TS["TS"]
-    non_ephys_filled.index = TS["TS"]         
+    non_ephys_filled.index = TS["TS"]
+    non_ephys_stops.index = TS["TS"]
+    non_ephys_filled2.index = TS["TS"]
+
     ephys_starts.index = TS["TS"]
     ephys_filled.index = TS["TS"]
+    ephys_stops.index = TS["TS"]
+    ephys_filled2.index = TS["TS"]
+
     non_ephys_starts = non_ephys_starts.fillna(0)
     non_ephys_filled = non_ephys_filled.fillna(0)
+    non_ephys_stops = non_ephys_stops.fillna(0)
+    non_ephys_filled2 = non_ephys_filled2.fillna(0)
+
     ephys_starts = ephys_starts.fillna(0)
     ephys_filled = ephys_filled.fillna(0)
+    ephys_stops = ephys_stops.fillna(0)
+    ephys_filled2 = ephys_filled2.fillna(0)
     
     filename = Path(file).stem
 
@@ -158,17 +184,30 @@ def conditions_ready(file, df, TS, framerate, video_len, test_dir):
         both_n_ephys_alligned = np.where((non_ephys_starts[behavior+"_non_ephys"] == 1) & (ephys_filled[behavior+"_ephys"] == 1))
         both_n_ephys_alligned = non_ephys_starts.iloc[both_n_ephys_alligned[0]].index
         np.savetxt(test_dir + "Conditions\\" + filename + "_" + behavior +  "_both_n_ephys_alligned.txt", both_n_ephys_alligned)
+        both_n_ephys_alligned_stops = np.where((non_ephys_stops[behavior + "_non_ephys"] == 1) & (ephys_filled2[behavior + "_ephys"] == 1))
+        both_n_ephys_alligned_stops = non_ephys_stops.iloc[both_n_ephys_alligned_stops[0]].index
+        np.savetxt(test_dir + "Conditions\\" + filename + "_" + behavior + "_both_n_ephys_alligned_stops.txt", both_n_ephys_alligned_stops)
+
         both_ephys_alligned = np.where((non_ephys_filled[behavior+"_non_ephys"] == 1) & (ephys_starts[behavior+"_ephys"] == 1))
         both_ephys_alligned = ephys_starts.iloc[both_ephys_alligned[0]].index
         np.savetxt(test_dir + "Conditions\\" + filename + "_" + behavior + "_both_ephys_alligned.txt", both_ephys_alligned)
+        both_ephys_alligned_stops = np.where((non_ephys_filled2[behavior + "_non_ephys"] == 1) & (ephys_stops[behavior + "_ephys"] == 1))
+        both_ephys_alligned_stops = ephys_stops.iloc[both_ephys_alligned_stops[0]].index
+        np.savetxt(test_dir + "Conditions\\" + filename + "_" + behavior + "_both_ephys_alligned_stops.txt", both_ephys_alligned_stops)
         
         non_ephys_only = np.where((non_ephys_starts[behavior+"_non_ephys"] == 1) & (ephys_filled[behavior+"_ephys"] == 0))
         non_ephys_only = non_ephys_starts.iloc[non_ephys_only[0]].index
         np.savetxt(test_dir + "Conditions\\" + filename + "_" + behavior + "_non_ephys_only.txt", non_ephys_only)
+        non_ephys_only_stops = np.where((non_ephys_stops[behavior + "_non_ephys"] == 1) & (ephys_filled2[behavior + "_ephys"] == 0))
+        non_ephys_only_stops = non_ephys_stops.iloc[non_ephys_only_stops[0]].index
+        np.savetxt(test_dir + "Conditions\\" + filename + "_" + behavior + "_non_ephys_only_stops.txt", non_ephys_only_stops)
         
         ephys_only = np.where((non_ephys_filled[behavior+"_non_ephys"] == 0) & (ephys_starts[behavior+"_ephys"] == 1))
         ephys_only = ephys_starts.iloc[ephys_only[0]].index
         np.savetxt(test_dir + "Conditions\\" + filename + "_" + behavior + "_ephys_only.txt", ephys_only)
+        ephys_only_stops = np.where((non_ephys_filled2[behavior + "_non_ephys"] == 0) & (ephys_stops[behavior + "_ephys"] == 1))
+        ephys_only_stops = ephys_stops.iloc[ephys_only_stops[0]].index
+        np.savetxt(test_dir + "Conditions\\" + filename + "_" + behavior + "_ephys_only_stops.txt", ephys_only_stops)
 
 def behavior_sequences(file, df, TS, framerate, video_len):
     """
