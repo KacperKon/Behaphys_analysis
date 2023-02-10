@@ -24,9 +24,11 @@ def fix_wrong_shank_NP2(cluster_info, ChanMap):
 
     #Change bad shank assignement to nan and replace with correct
     tmp["sh"] = np.nan
-    tmp["sh"] = tmp["sh"].fillna(df["shanks"])
+    tmp["sh"] = tmp["sh"].fillna(df["shanks"]) # I'm not sure how 'fillna' works - are you sure shank numbers are assigned correctly if: 
+    # a) multiple units are recorded from same channel
+    # b) no units are recorded from many channels?
 
-    tmp.to_csv(os.path.join(cluster_info, r"cluster_info.csv")  )
+    tmp.to_csv(os.path.join(cluster_info, r"cluster_info.csv")  )  # Probably bad idea to overwrite this file if someone doesn't store a copy elsewhere
 
 def get_brain_regions(cluster_info, histology, neuropixels_20=True):
     """Adds a column to cluster_info with structure names from herbs matched to good units based on depth
@@ -56,9 +58,10 @@ def get_brain_regions(cluster_info, histology, neuropixels_20=True):
         areas = {keys[i]: values[i] for i in range(len(keys))}
         
         temporary = pd.Series(np.append(obj["data"]["sites_label"][0], obj["data"]["sites_label"][1]))
+        # So in HERBS output for NP.1 the obj["data"]["sites_label"] has only 2 columns, not 4? If yes, then the code is correct
         region_label_per_row = []
         for key in keys:
-            a = temporary.loc[temporary == key]
+            a = temporary.loc[temporary == key]  # at some point if you use only generic variable names it becomes really hard to follow
             region_label_per_row.append(a)
         region_label_per_row = pd.concat(region_label_per_row, ignore_index=True)
         if neuropixels_20 == True:
